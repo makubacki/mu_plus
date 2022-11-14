@@ -11,7 +11,7 @@ resources:
       type: github
       endpoint: makubacki
       name: makubacki/mu_devops
-      ref: main
+      ref: test_pip_install_change
 
 variables:
 - group: architectures-x86-64
