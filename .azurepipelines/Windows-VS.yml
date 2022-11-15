@@ -11,7 +11,7 @@ resources:
       type: github
       endpoint: makubacki
       name: makubacki/mu_devops
-      ref: test_pip_install_change
+      ref: move_to_py_3_11
 
 variables:
 - group: architectures-x86-64
