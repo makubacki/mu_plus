@@ -22,6 +22,8 @@
 
 // Another C file change
 
+// Another C file change
+
 MFCI_POLICY_TYPE
 EFIAPI
 InternalGetMfciPolicy (
