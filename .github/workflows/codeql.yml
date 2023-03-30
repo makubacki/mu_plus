@@ -26,10 +26,12 @@ on:
     branches:
       - main
       - release/*
+      - add_py_dep_caching
   pull_request_target:
     branches:
       - main
       - release/*
+      - add_py_dep_caching
     paths-ignore:
       - '!**.c'
       - '!**.h'
