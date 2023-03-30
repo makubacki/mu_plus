@@ -20,6 +20,8 @@
 
 // Update C file to trigger CodeQL
 
+// Another C file change
+
 MFCI_POLICY_TYPE
 EFIAPI
 InternalGetMfciPolicy (
