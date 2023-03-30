@@ -18,6 +18,8 @@
 #include <Ppi/MfciPolicyPpi.h>
 #include <Ppi/ReadOnlyVariable2.h>
 
+// Update C file to trigger CodeQL
+
 MFCI_POLICY_TYPE
 EFIAPI
 InternalGetMfciPolicy (
