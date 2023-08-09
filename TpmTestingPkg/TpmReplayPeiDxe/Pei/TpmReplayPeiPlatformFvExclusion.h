@@ -1,0 +1,22 @@
+/** @file
+  TPM Replay FV Exclusion - Module-Wide Header File
+
+  Generic APIs and definitions shared across the module.
+
+  Copyright (c) Microsoft Corporation.
+
+  SPDX-License-Identifier: BSD-2-Clause-Patent
+
+**/
+
+#ifndef TPM_REPLAY_PEI_PLATFORM_FV_EXCLUSION_H_
+#define TPM_REPLAY_PEI_PLATFORM_FV_EXCLUSION_H_
+
+#include <PiPei.h>
+
+EFI_STATUS
+InstallPlatformFvExclusions (
+  VOID
+  );
+
+#endif
