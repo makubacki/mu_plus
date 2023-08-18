@@ -16,3 +16,6 @@ _TEMP_*/
 /Common
 /Silicon
 /MU_BASECORE
+
+# Ignore Rust build output
+/target
