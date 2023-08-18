@@ -14,6 +14,14 @@
 # SPDX-License-Identifier: BSD-2-Clause-Patent
 ##
 
+resources:
+  repositories:
+    - repository: mu_devops
+      type: github
+      endpoint: microsoft
+      name: microsoft/mu_devops
+      ref: add_rust_support     # Temporary dev branch
+
 variables:
 - group: architectures-x86-64
 - group: tool-chain-windows-visual-studio-latest
@@ -27,6 +35,10 @@ extends:
     do_non_ci_setup: true
     do_pr_eval: true
     os_type: Windows_NT
+    extra_install_step:
+    - template: Steps/RustInstallSteps.yml@mu_devops
+    extra_steps:
+    - template: Steps/RustExtraSteps.yml@mu_devops
     build_matrix:
       TARGET_MFCI_XML:
         Pkgs: 'XmlSupportPkg,MfciPkg'
