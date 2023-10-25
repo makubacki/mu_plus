@@ -219,7 +219,7 @@ class Settings(CiSetupSettingsManager, CiBuildSettingsManager, UpdateSettingsMan
             {
                 "Path": "MU_BASECORE",
                 "Url": "https://github.com/microsoft/mu_basecore.git",
-                "Branch": "release/202302"
+                "Branch": "test_add_rust_env_check_tool_opt_out"
             },
             {
                 "Path": "Silicon/Arm/MU_TIANO",
