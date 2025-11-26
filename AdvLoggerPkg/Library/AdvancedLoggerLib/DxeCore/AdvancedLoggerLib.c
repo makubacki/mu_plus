@@ -20,6 +20,7 @@
 #include <Library/BaseLib.h>
 #include <Library/BaseMemoryLib.h>
 #include <Library/DebugLib.h>
+#include <Library/DxeServicesTableLib.h>
 #include <Library/HobLib.h>
 #include <Library/MemoryAllocationLib.h>
 #include <Library/PcdLib.h>
@@ -368,37 +369,65 @@ DxeCoreAdvancedLoggerLibConstructor (
   )
 {
   ADVANCED_LOGGER_INFO              *LoggerInfo;
+  ADVANCED_LOGGER_INFO              *PreDxeLoggerInfo;
+  ADVANCED_LOGGER_INFO              *NewLoggerInfo;
   EFI_STATUS                        Status;
   ADVANCED_LOGGER_PRE_DXE_LOGS_HOB  *PreDxeLogs;
   EFI_HOB_GUID_TYPE                 *PreDxeLogsHobEntry;
 
-  LoggerInfo = AdvancedLoggerGetLoggerInfo ();      // Sets mLoggerInfo if Logger Information block found in HOB.
+  //
+  // Get the buffer from the previous execution phase if available.
+  //
+  PreDxeLoggerInfo = AdvancedLoggerGetLoggerInfo ();
 
   //
-  // For an implementation of the AdvancedLogger with a PEI implementation, there will be a
-  // Logger Information block published and available.
+  // Always allocate a new reserved buffer in DXE for runtime use
   //
-  if (LoggerInfo == NULL) {
-    LoggerInfo = (ADVANCED_LOGGER_INFO *)AllocateReservedPages (FixedPcdGet32 (PcdAdvancedLoggerPages));
-    if (LoggerInfo != NULL) {
-      ZeroMem ((VOID *)LoggerInfo, sizeof (ADVANCED_LOGGER_INFO));
-      LoggerInfo->Signature        = ADVANCED_LOGGER_SIGNATURE;
-      LoggerInfo->Version          = ADVANCED_LOGGER_VERSION;
-      LoggerInfo->LogBufferOffset  = EXPECTED_LOG_BUFFER_OFFSET (LoggerInfo);
-      LoggerInfo->LogBufferSize    = EFI_PAGES_TO_SIZE (FixedPcdGet32 (PcdAdvancedLoggerPages)) - sizeof (ADVANCED_LOGGER_INFO);
-      LoggerInfo->LogCurrentOffset = LoggerInfo->LogBufferOffset;
-      LoggerInfo->HwPrintLevel     = FixedPcdGet32 (PcdAdvancedLoggerHdwPortDebugPrintErrorLevel);
-      if (LoggerInfo->HdwPortInitialized == FALSE) {
-        AdvancedLoggerHdwPortInitialize ();
-        LoggerInfo->HdwPortInitialized = TRUE;
-      }
-
-      mMaxAddress = LOG_MAX_ADDRESS (LoggerInfo);
-      mBufferSize = LoggerInfo->LogBufferSize;
-    } else {
-      DEBUG ((DEBUG_ERROR, "%a: Error allocating Advanced Logger Buffer\n", __FUNCTION__));
-    }
+  NewLoggerInfo = (ADVANCED_LOGGER_INFO *)AllocateReservedPages (FixedPcdGet32 (PcdAdvancedLoggerPages));
+  if (NewLoggerInfo == NULL) {
+    DEBUG ((DEBUG_ERROR, "%a: Error allocating Advanced Logger Buffer\n", __func__));
+    return EFI_OUT_OF_RESOURCES;
   }
+
+  //
+  // Initialize the new buffer
+  //
+  ZeroMem ((VOID *)NewLoggerInfo, sizeof (ADVANCED_LOGGER_INFO));
+  NewLoggerInfo->Signature        = ADVANCED_LOGGER_SIGNATURE;
+  NewLoggerInfo->Version          = ADVANCED_LOGGER_VERSION;
+  NewLoggerInfo->LogBufferOffset  = EXPECTED_LOG_BUFFER_OFFSET (NewLoggerInfo);
+  NewLoggerInfo->LogBufferSize    = EFI_PAGES_TO_SIZE (FixedPcdGet32 (PcdAdvancedLoggerPages)) - sizeof (ADVANCED_LOGGER_INFO);
+  NewLoggerInfo->LogCurrentOffset = NewLoggerInfo->LogBufferOffset;
+  NewLoggerInfo->HwPrintLevel     = FixedPcdGet32 (PcdAdvancedLoggerHdwPortDebugPrintErrorLevel);
+
+  //
+  // If a pre-existing buffer was provided, copy its contents to the new buffer
+  //
+  if (PreDxeLoggerInfo != NULL) {
+    NewLoggerInfo->TimerFrequency = PreDxeLoggerInfo->TimerFrequency;
+    NewLoggerInfo->TicksAtTime    = PreDxeLoggerInfo->TicksAtTime;
+    CopyMem ((VOID *)&NewLoggerInfo->Time, (VOID *)&PreDxeLoggerInfo->Time, sizeof (EFI_TIME));
+
+    if (PreDxeLoggerInfo->LogCurrentOffset > PreDxeLoggerInfo->LogBufferOffset) {
+      CopyMem (
+        LOG_BUFFER_FROM_ALI (NewLoggerInfo),
+        LOG_BUFFER_FROM_ALI (PreDxeLoggerInfo),
+        USED_LOG_SIZE (PreDxeLoggerInfo)
+        );
+      NewLoggerInfo->LogCurrentOffset = NewLoggerInfo->LogBufferOffset + USED_LOG_SIZE (PreDxeLoggerInfo);
+    }
+
+    NewLoggerInfo->DiscardedSize = PreDxeLoggerInfo->DiscardedSize;
+  }
+
+  if (!NewLoggerInfo->HdwPortInitialized) {
+    AdvancedLoggerHdwPortInitialize ();
+    NewLoggerInfo->HdwPortInitialized = TRUE;
+  }
+
+  mMaxAddress = LOG_MAX_ADDRESS (NewLoggerInfo);
+  mBufferSize = NewLoggerInfo->LogBufferSize;
+  LoggerInfo  = NewLoggerInfo;
 
   mLoggerInfo = LoggerInfo;
   if (LoggerInfo != NULL) {
