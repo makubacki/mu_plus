@@ -381,53 +381,73 @@ DxeCoreAdvancedLoggerLibConstructor (
   PreDxeLoggerInfo = AdvancedLoggerGetLoggerInfo ();
 
   //
-  // Always allocate a new reserved buffer in DXE for runtime use
+  // Only allocate a new reserved buffer and migrate when PcdAdvancedLoggerBase is 0.
+  // When PcdAdvancedLoggerBase is non-zero, the buffer at a fixed address and is not migrated.
   //
-  NewLoggerInfo = (ADVANCED_LOGGER_INFO *)AllocateReservedPages (FixedPcdGet32 (PcdAdvancedLoggerPages));
-  if (NewLoggerInfo == NULL) {
-    DEBUG ((DEBUG_ERROR, "%a: Error allocating Advanced Logger Buffer\n", __func__));
-    return EFI_OUT_OF_RESOURCES;
-  }
-
-  //
-  // Initialize the new buffer
-  //
-  ZeroMem ((VOID *)NewLoggerInfo, sizeof (ADVANCED_LOGGER_INFO));
-  NewLoggerInfo->Signature        = ADVANCED_LOGGER_SIGNATURE;
-  NewLoggerInfo->Version          = ADVANCED_LOGGER_VERSION;
-  NewLoggerInfo->LogBufferOffset  = EXPECTED_LOG_BUFFER_OFFSET (NewLoggerInfo);
-  NewLoggerInfo->LogBufferSize    = EFI_PAGES_TO_SIZE (FixedPcdGet32 (PcdAdvancedLoggerPages)) - sizeof (ADVANCED_LOGGER_INFO);
-  NewLoggerInfo->LogCurrentOffset = NewLoggerInfo->LogBufferOffset;
-  NewLoggerInfo->HwPrintLevel     = FixedPcdGet32 (PcdAdvancedLoggerHdwPortDebugPrintErrorLevel);
-
-  //
-  // If a pre-existing buffer was provided, copy its contents to the new buffer
-  //
-  if (PreDxeLoggerInfo != NULL) {
-    NewLoggerInfo->TimerFrequency = PreDxeLoggerInfo->TimerFrequency;
-    NewLoggerInfo->TicksAtTime    = PreDxeLoggerInfo->TicksAtTime;
-    CopyMem ((VOID *)&NewLoggerInfo->Time, (VOID *)&PreDxeLoggerInfo->Time, sizeof (EFI_TIME));
-
-    if (PreDxeLoggerInfo->LogCurrentOffset > PreDxeLoggerInfo->LogBufferOffset) {
-      CopyMem (
-        LOG_BUFFER_FROM_ALI (NewLoggerInfo),
-        LOG_BUFFER_FROM_ALI (PreDxeLoggerInfo),
-        USED_LOG_SIZE (PreDxeLoggerInfo)
-        );
-      NewLoggerInfo->LogCurrentOffset = NewLoggerInfo->LogBufferOffset + USED_LOG_SIZE (PreDxeLoggerInfo);
+  if (FixedPcdGet64 (PcdAdvancedLoggerBase) == 0) {
+    //
+    // Allocate a new reserved buffer in DXE for runtime use
+    //
+    NewLoggerInfo = (ADVANCED_LOGGER_INFO *)AllocateReservedPages (FixedPcdGet32 (PcdAdvancedLoggerPages));
+    if (NewLoggerInfo == NULL) {
+      DEBUG ((DEBUG_ERROR, "%a: Error allocating Advanced Logger Buffer\n", __func__));
+      return EFI_OUT_OF_RESOURCES;
     }
 
-    NewLoggerInfo->DiscardedSize = PreDxeLoggerInfo->DiscardedSize;
-  }
+    //
+    // Initialize the new buffer
+    //
+    ZeroMem ((VOID *)NewLoggerInfo, sizeof (ADVANCED_LOGGER_INFO));
+    NewLoggerInfo->Signature        = ADVANCED_LOGGER_SIGNATURE;
+    NewLoggerInfo->Version          = ADVANCED_LOGGER_VERSION;
+    NewLoggerInfo->LogBufferOffset  = EXPECTED_LOG_BUFFER_OFFSET (NewLoggerInfo);
+    NewLoggerInfo->LogBufferSize    = EFI_PAGES_TO_SIZE (FixedPcdGet32 (PcdAdvancedLoggerPages)) - sizeof (ADVANCED_LOGGER_INFO);
+    NewLoggerInfo->LogCurrentOffset = NewLoggerInfo->LogBufferOffset;
+    NewLoggerInfo->HwPrintLevel     = FixedPcdGet32 (PcdAdvancedLoggerHdwPortDebugPrintErrorLevel);
 
-  if (!NewLoggerInfo->HdwPortInitialized) {
-    AdvancedLoggerHdwPortInitialize ();
-    NewLoggerInfo->HdwPortInitialized = TRUE;
-  }
+    //
+    // If a pre-existing buffer was provided, copy its contents to the new buffer
+    //
+    if (PreDxeLoggerInfo != NULL) {
+      NewLoggerInfo->TimerFrequency = PreDxeLoggerInfo->TimerFrequency;
+      NewLoggerInfo->TicksAtTime    = PreDxeLoggerInfo->TicksAtTime;
+      CopyMem ((VOID *)&NewLoggerInfo->Time, (VOID *)&PreDxeLoggerInfo->Time, sizeof (EFI_TIME));
 
-  mMaxAddress = LOG_MAX_ADDRESS (NewLoggerInfo);
-  mBufferSize = NewLoggerInfo->LogBufferSize;
-  LoggerInfo  = NewLoggerInfo;
+      if (PreDxeLoggerInfo->LogCurrentOffset > PreDxeLoggerInfo->LogBufferOffset) {
+        CopyMem (
+          LOG_BUFFER_FROM_ALI (NewLoggerInfo),
+          LOG_BUFFER_FROM_ALI (PreDxeLoggerInfo),
+          USED_LOG_SIZE (PreDxeLoggerInfo)
+          );
+        NewLoggerInfo->LogCurrentOffset = NewLoggerInfo->LogBufferOffset + USED_LOG_SIZE (PreDxeLoggerInfo);
+      }
+
+      NewLoggerInfo->DiscardedSize = PreDxeLoggerInfo->DiscardedSize;
+    }
+
+    if (!NewLoggerInfo->HdwPortInitialized) {
+      AdvancedLoggerHdwPortInitialize ();
+      NewLoggerInfo->HdwPortInitialized = TRUE;
+    }
+
+    mMaxAddress = LOG_MAX_ADDRESS (NewLoggerInfo);
+    mBufferSize = NewLoggerInfo->LogBufferSize;
+    LoggerInfo  = NewLoggerInfo;
+  } else {
+    LoggerInfo = PreDxeLoggerInfo;
+    if (LoggerInfo == NULL) {
+      DEBUG ((DEBUG_ERROR, "%a: PcdAdvancedLoggerBase is non-zero but no logger info found\n", __func__));
+      return EFI_NOT_FOUND;
+    }
+
+    if (!LoggerInfo->HdwPortInitialized) {
+      AdvancedLoggerHdwPortInitialize ();
+      LoggerInfo->HdwPortInitialized = TRUE;
+    }
+
+    mMaxAddress = LOG_MAX_ADDRESS (LoggerInfo);
+    mBufferSize = LoggerInfo->LogBufferSize;
+  }
 
   mLoggerInfo = LoggerInfo;
   if (LoggerInfo != NULL) {
