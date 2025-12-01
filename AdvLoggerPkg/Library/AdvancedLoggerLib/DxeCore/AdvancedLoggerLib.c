@@ -164,6 +164,8 @@ AdvancedLoggerGetLoggerInfo (
 
   if (((mLoggerInfo) != NULL) && !ValidateInfoBlock ()) {
     mLoggerInfo = NULL;
+  } else if ((mLoggerInfo != NULL) && AdvancedLoggerCheckForNewerLogger (&mLoggerInfo, &mMaxAddress, &mBufferSize)) {
+    DEBUG ((DEBUG_INFO, "DxeCore %a: Logger Update. LoggerInfo=%p\n", __func__, mLoggerInfo));
   }
 
   return mLoggerInfo;
@@ -398,12 +400,13 @@ DxeCoreAdvancedLoggerLibConstructor (
     // Initialize the new buffer
     //
     ZeroMem ((VOID *)NewLoggerInfo, sizeof (ADVANCED_LOGGER_INFO));
-    NewLoggerInfo->Signature        = ADVANCED_LOGGER_SIGNATURE;
-    NewLoggerInfo->Version          = ADVANCED_LOGGER_VERSION;
-    NewLoggerInfo->LogBufferOffset  = EXPECTED_LOG_BUFFER_OFFSET (NewLoggerInfo);
-    NewLoggerInfo->LogBufferSize    = EFI_PAGES_TO_SIZE (FixedPcdGet32 (PcdAdvancedLoggerPages)) - sizeof (ADVANCED_LOGGER_INFO);
-    NewLoggerInfo->LogCurrentOffset = NewLoggerInfo->LogBufferOffset;
-    NewLoggerInfo->HwPrintLevel     = FixedPcdGet32 (PcdAdvancedLoggerHdwPortDebugPrintErrorLevel);
+    NewLoggerInfo->Signature            = ADVANCED_LOGGER_SIGNATURE;
+    NewLoggerInfo->Version              = ADVANCED_LOGGER_VERSION;
+    NewLoggerInfo->LogBufferOffset      = EXPECTED_LOG_BUFFER_OFFSET (NewLoggerInfo);
+    NewLoggerInfo->LogBufferSize        = EFI_PAGES_TO_SIZE (FixedPcdGet32 (PcdAdvancedLoggerPages)) - sizeof (ADVANCED_LOGGER_INFO);
+    NewLoggerInfo->LogCurrentOffset     = NewLoggerInfo->LogBufferOffset;
+    NewLoggerInfo->HwPrintLevel         = FixedPcdGet32 (PcdAdvancedLoggerHdwPortDebugPrintErrorLevel);
+    NewLoggerInfo->NewLoggerInfoAddress = 0;
 
     //
     // If a pre-existing buffer was provided, copy its contents to the new buffer
@@ -423,6 +426,11 @@ DxeCoreAdvancedLoggerLibConstructor (
       }
 
       NewLoggerInfo->DiscardedSize = PreDxeLoggerInfo->DiscardedSize;
+
+      //
+      // Set the old logger info's NewLoggerInfoAddress to redirect to the new buffer
+      //
+      PreDxeLoggerInfo->NewLoggerInfoAddress = PA_FROM_PTR (NewLoggerInfo);
     }
 
     if (!NewLoggerInfo->HdwPortInitialized) {

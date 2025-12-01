@@ -108,6 +108,8 @@ AdvancedLoggerGetLoggerInfo (
 
   if (!ValidateInfoBlock ()) {
     mLoggerInfo = NULL;
+  } else if (mLoggerInfo != NULL) {
+    AdvancedLoggerCheckForNewerLogger (&mLoggerInfo, &mMaxAddress, &mBufferSize);
   }
 
   return mLoggerInfo;

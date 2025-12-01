@@ -120,6 +120,8 @@ AdvancedLoggerGetLoggerInfo (
   if (((mLoggerInfo) != NULL) && !ValidateInfoBlock ()) {
     mLoggerInfo = NULL;
     DEBUG ((DEBUG_ERROR, "MmCore %a: LoggerInfo marked invalid\n", __func__));
+  } else if ((mLoggerInfo != NULL) && AdvancedLoggerCheckForNewerLogger (&mLoggerInfo, &mMaxAddress, &mBufferSize)) {
+    DEBUG ((DEBUG_INFO, "MmCore %a: Logger Update. LoggerInfo=%p\n", __func__, mLoggerInfo));
   }
 
   return mLoggerInfo;
