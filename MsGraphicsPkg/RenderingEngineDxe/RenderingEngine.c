@@ -17,11 +17,9 @@ Copyright (C) Microsoft Corporation. All rights reserved.
 // ****** Global variables ******
 //
 EFI_HANDLE                    mImageHandle;
-EFI_HANDLE                    mSREGopHandle;
-EFI_GRAPHICS_OUTPUT_PROTOCOL  *mParentGop;
+EFI_GRAPHICS_OUTPUT_PROTOCOL  *mGop;
 RENDERING_ENGINE_CONTEXT      mSRE;
 EFI_EVENT                     mSampleSurfaceFrameTimerEvent;
-EFI_GUID                      *mMsGopOverrideProtocolGuid;
 BOOLEAN                       mPreExitBootServices = FALSE;
 
 // ****** Typedefs and structures ******
@@ -96,25 +94,25 @@ DrawMousePointer (
   EFI_STATUS  Status = EFI_SUCCESS;
   UINTN       Index;
 
-  if (mParentGop == NULL) {
+  if ((mGop == NULL) || (mSRE.OriginalGop.Blt == NULL)) {
     return EFI_NOT_READY;
   }
 
   // Restore the location where the mouse pointer currently resides with the original screen content.
   //
   if (TRUE == mSRE.ShowingMousePointer) {
-    mParentGop->Blt (
-                  mParentGop,
-                  mSRE.MousePointerBackBuffer,
-                  EfiBltBufferToVideo,
-                  0,
-                  0,
-                  mSRE.MousePointerOrigX,
-                  mSRE.MousePointerOrigY,
-                  mSRE.MousePointerWidth,
-                  mSRE.MousePointerHeight,
-                  0
-                  );
+    mSRE.OriginalGop.Blt (
+                       mGop,
+                       mSRE.MousePointerBackBuffer,
+                       EfiBltBufferToVideo,
+                       0,
+                       0,
+                       mSRE.MousePointerOrigX,
+                       mSRE.MousePointerOrigY,
+                       mSRE.MousePointerWidth,
+                       mSRE.MousePointerHeight,
+                       0
+                       );
   }
 
   // If we don't need to show the mouse pointer, we're done.
@@ -125,33 +123,33 @@ DrawMousePointer (
 
   // Otherwise capture screen contents at the new location.
   //
-  mParentGop->Blt (
-                mParentGop,
-                mSRE.MousePointerBackBuffer,
-                EfiBltVideoToBltBuffer,
-                NewOrigX,
-                NewOrigY,
-                0,
-                0,
-                mSRE.MousePointerWidth,
-                mSRE.MousePointerHeight,
-                0
-                );
+  mSRE.OriginalGop.Blt (
+                     mGop,
+                     mSRE.MousePointerBackBuffer,
+                     EfiBltVideoToBltBuffer,
+                     NewOrigX,
+                     NewOrigY,
+                     0,
+                     0,
+                     mSRE.MousePointerWidth,
+                     mSRE.MousePointerHeight,
+                     0
+                     );
 
   // Proceed to draw the mouse pointer at the new location.
   //
-  mParentGop->Blt (
-                mParentGop,
-                mSRE.MousePointerBltBuffer,
-                EfiBltVideoToBltBuffer,
-                NewOrigX,
-                NewOrigY,
-                0,
-                0,
-                mSRE.MousePointerWidth,
-                mSRE.MousePointerHeight,
-                0
-                );
+  mSRE.OriginalGop.Blt (
+                     mGop,
+                     mSRE.MousePointerBltBuffer,
+                     EfiBltVideoToBltBuffer,
+                     NewOrigX,
+                     NewOrigY,
+                     0,
+                     0,
+                     mSRE.MousePointerWidth,
+                     mSRE.MousePointerHeight,
+                     0
+                     );
 
   // Logically "OR" the mouse pointer into the blt buffer
   //
@@ -167,18 +165,18 @@ DrawMousePointer (
 
   // Blt the result to the screen
   //
-  mParentGop->Blt (
-                mParentGop,
-                mSRE.MousePointerBltBuffer,
-                EfiBltBufferToVideo,
-                0,
-                0,
-                NewOrigX,
-                NewOrigY,
-                mSRE.MousePointerWidth,
-                mSRE.MousePointerHeight,
-                0
-                );
+  mSRE.OriginalGop.Blt (
+                     mGop,
+                     mSRE.MousePointerBltBuffer,
+                     EfiBltBufferToVideo,
+                     0,
+                     0,
+                     NewOrigX,
+                     NewOrigY,
+                     mSRE.MousePointerWidth,
+                     mSRE.MousePointerHeight,
+                     0
+                     );
 
 Exit:
 
@@ -236,7 +234,7 @@ SREBlt (
   UINT32            FrameWidth, FrameHeight;
   BOOLEAN           MousePointerState = mSRE.ShowingMousePointer;
 
-  if (mParentGop == NULL) {
+  if ((mGop == NULL) || (mSRE.OriginalGop.Blt == NULL)) {
     return EFI_NOT_READY;
   }
 
@@ -300,18 +298,18 @@ SREBlt (
 
       // Restore the contents to the framebuffer.
       //
-      mParentGop->Blt (
-                    mParentGop,
-                    Surface->pCaptureBuffer,
-                    EfiBltBufferToVideo,
-                    0,
-                    0,
-                    Surface->FrameRect.Left,
-                    Surface->FrameRect.Top,
-                    FrameWidth,
-                    FrameHeight,
-                    0
-                    );
+      mSRE.OriginalGop.Blt (
+                         mGop,
+                         Surface->pCaptureBuffer,
+                         EfiBltBufferToVideo,
+                         0,
+                         0,
+                         Surface->FrameRect.Left,
+                         Surface->FrameRect.Top,
+                         FrameWidth,
+                         FrameHeight,
+                         0
+                         );
 
       // Re-calculate the surface frame checksum.
       //
@@ -323,18 +321,18 @@ SREBlt (
 
   // Perform the caller's requested blit operation.
   //
-  mParentGop->Blt (
-                mParentGop,
-                BltBuffer,
-                BltOperation,
-                SourceX,
-                SourceY,
-                DestinationX,
-                DestinationY,
-                Width,
-                Height,
-                Delta
-                );
+  mSRE.OriginalGop.Blt (
+                     mGop,
+                     BltBuffer,
+                     BltOperation,
+                     SourceX,
+                     SourceY,
+                     DestinationX,
+                     DestinationY,
+                     Width,
+                     Height,
+                     Delta
+                     );
 
   // Now that we've finished the caller's requested blitting, recapture the contents underlying any active client surface that intersected with the blit rectangle.
   // Note that we ignore video to blit buffer operations since these don't affect the framebuffer.
@@ -353,18 +351,18 @@ SREBlt (
 
         // Save the contents of the framebuffer to this capture buffer.
         //
-        mParentGop->Blt (
-                      mParentGop,
-                      Surface->pCaptureBuffer,
-                      EfiBltVideoToBltBuffer,
-                      Surface->FrameRect.Left,
-                      Surface->FrameRect.Top,
-                      0,
-                      0,
-                      FrameWidth,
-                      FrameHeight,
-                      FrameWidth * sizeof (EFI_GRAPHICS_OUTPUT_BLT_PIXEL)
-                      );
+        mSRE.OriginalGop.Blt (
+                           mGop,
+                           Surface->pCaptureBuffer,
+                           EfiBltVideoToBltBuffer,
+                           Surface->FrameRect.Left,
+                           Surface->FrameRect.Top,
+                           0,
+                           0,
+                           FrameWidth,
+                           FrameHeight,
+                           FrameWidth * sizeof (EFI_GRAPHICS_OUTPUT_BLT_PIXEL)
+                           );
       }
 
       // Re-calculate the surface frame checksum.
@@ -403,16 +401,16 @@ SREQueryMode (
   OUT EFI_GRAPHICS_OUTPUT_MODE_INFORMATION  **Info
   )
 {
-  if (mParentGop == NULL) {
+  if ((mGop == NULL) || (mSRE.OriginalGop.QueryMode == NULL)) {
     return EFI_NOT_READY;
   }
 
-  return mParentGop->QueryMode (
-                       mParentGop,
-                       ModeNumber,
-                       SizeOfInfo,
-                       Info
-                       );
+  return mSRE.OriginalGop.QueryMode (
+                            mGop,
+                            ModeNumber,
+                            SizeOfInfo,
+                            Info
+                            );
 }
 
 static
@@ -426,7 +424,7 @@ SRESetMode (
   EFI_STATUS  Status;
   EFI_TPL     PreviousTPL;
 
-  if (mParentGop == NULL) {
+  if ((mGop == NULL) || (mSRE.OriginalGop.SetMode == NULL)) {
     return EFI_NOT_READY;
   }
 
@@ -434,10 +432,10 @@ SRESetMode (
   //
   PreviousTPL = gBS->RaiseTPL (TPL_CALLBACK);
 
-  Status = mParentGop->SetMode (
-                         mParentGop,
-                         ModeNumber
-                         );
+  Status = mSRE.OriginalGop.SetMode (
+                              mGop,
+                              ModeNumber
+                              );
   // Restore the TPL.
   //
   gBS->RestoreTPL (PreviousTPL);
@@ -646,13 +644,13 @@ CalculateSurfaceFrameChecksum (
   UINT32                         Offset;
   UINT32                         Checksum = 0;
 
-  if (mParentGop == NULL) {
+  if ((mGop == NULL) || (mSRE.OriginalGop.QueryMode == NULL) || (mSRE.OriginalGop.Mode == NULL)) {
     return 0;
   }
 
   // Sample top edge.
   //
-  SurfaceOrigin = ((EFI_GRAPHICS_OUTPUT_BLT_PIXEL *)mParentGop->Mode->FrameBufferBase + (Surface->FrameRect.Top * mParentGop->Mode->Info->PixelsPerScanLine) + Surface->FrameRect.Left);
+  SurfaceOrigin = ((EFI_GRAPHICS_OUTPUT_BLT_PIXEL *)mSRE.OriginalGop.Mode->FrameBufferBase + (Surface->FrameRect.Top * mSRE.OriginalGop.Mode->Info->PixelsPerScanLine) + Surface->FrameRect.Left);
   for (Offset = 0; Offset < Width; Offset += SURFACE_FRAME_SAMPLE_PIXEL_SPACING) {
     Checksum += *(UINT32 *)(SurfaceOrigin + Offset);
   }
@@ -661,18 +659,18 @@ CalculateSurfaceFrameChecksum (
   //
   for (Offset = 0; Offset < Height; Offset += SURFACE_FRAME_SAMPLE_PIXEL_SPACING) {
     // Left edge.
-    Checksum += *(UINT32 *)(SurfaceOrigin + (Offset * mParentGop->Mode->Info->PixelsPerScanLine));
+    Checksum += *(UINT32 *)(SurfaceOrigin + (Offset * mSRE.OriginalGop.Mode->Info->PixelsPerScanLine));
 
     // Midpoint bisecting line.
-    Checksum += *(UINT32 *)(SurfaceOrigin + (Offset * mParentGop->Mode->Info->PixelsPerScanLine) + ((Width - 1) /2));
+    Checksum += *(UINT32 *)(SurfaceOrigin + (Offset * mSRE.OriginalGop.Mode->Info->PixelsPerScanLine) + ((Width - 1) /2));
 
     // Right edge.
-    Checksum += *(UINT32 *)(SurfaceOrigin + (Offset * mParentGop->Mode->Info->PixelsPerScanLine) + (Width - 1));
+    Checksum += *(UINT32 *)(SurfaceOrigin + (Offset * mSRE.OriginalGop.Mode->Info->PixelsPerScanLine) + (Width - 1));
   }
 
   // Sample bottom edge.
   //
-  SurfaceOrigin = ((EFI_GRAPHICS_OUTPUT_BLT_PIXEL *)mParentGop->Mode->FrameBufferBase + ((Surface->FrameRect.Bottom - 1) * mParentGop->Mode->Info->PixelsPerScanLine) + Surface->FrameRect.Left);
+  SurfaceOrigin = ((EFI_GRAPHICS_OUTPUT_BLT_PIXEL *)mSRE.OriginalGop.Mode->FrameBufferBase + ((Surface->FrameRect.Bottom - 1) * mSRE.OriginalGop.Mode->Info->PixelsPerScanLine) + Surface->FrameRect.Left);
   for (Offset = 0; Offset < Width; Offset += SURFACE_FRAME_SAMPLE_PIXEL_SPACING) {
     Checksum += *(UINT32 *)(SurfaceOrigin + Offset);
   }
@@ -837,7 +835,7 @@ SREResizeSurface (
 
   DEBUG ((DEBUG_INFO, "INFO [SRE]: Resizing surface (ImageHandle=0x%x).\r\n", (UINTN)ImageHandle));
 
-  if (mParentGop == NULL) {
+  if ((mGop == NULL) || (mSRE.OriginalGop.Blt == NULL)) {
     return EFI_NOT_READY;
   }
 
@@ -870,18 +868,18 @@ SREResizeSurface (
 
           // Restore the contents to the framebuffer.
           //
-          mParentGop->Blt (
-                        mParentGop,
-                        Surface->pCaptureBuffer,
-                        EfiBltBufferToVideo,
-                        0,
-                        0,
-                        Surface->FrameRect.Left,
-                        Surface->FrameRect.Top,
-                        Width,
-                        Height,
-                        0
-                        );
+          mSRE.OriginalGop.Blt (
+                             mGop,
+                             Surface->pCaptureBuffer,
+                             EfiBltBufferToVideo,
+                             0,
+                             0,
+                             Surface->FrameRect.Left,
+                             Surface->FrameRect.Top,
+                             Width,
+                             Height,
+                             0
+                             );
         }
 
         FreePool (Surface->pCaptureBuffer);
@@ -909,18 +907,18 @@ SREResizeSurface (
       if (TRUE == Surface->Active) {
         // Save the contents of the framebuffer to this capture buffer.
         //
-        mParentGop->Blt (
-                      mParentGop,
-                      Surface->pCaptureBuffer,
-                      EfiBltVideoToBltBuffer,
-                      Surface->FrameRect.Left,
-                      Surface->FrameRect.Top,
-                      0,
-                      0,
-                      Width,
-                      Height,
-                      0
-                      );
+        mSRE.OriginalGop.Blt (
+                           mGop,
+                           Surface->pCaptureBuffer,
+                           EfiBltVideoToBltBuffer,
+                           Surface->FrameRect.Left,
+                           Surface->FrameRect.Top,
+                           0,
+                           0,
+                           Width,
+                           Height,
+                           0
+                           );
 
         // Compute the surface frame checksum.
         //
@@ -965,7 +963,7 @@ SREActivateSurface (
 
   DEBUG ((DEBUG_INFO, "INFO [SRE]: Setting surface active (ImageHandle=0x%x, MakeActive=%s).\r\n", (UINTN)ImageHandle, (TRUE == MakeActive ? L"TRUE" : L"FALSE")));
 
-  if (mParentGop == NULL) {
+  if ((mGop == NULL) || (mSRE.OriginalGop.Blt == NULL)) {
     return EFI_NOT_READY;
   }
 
@@ -1013,18 +1011,18 @@ SREActivateSurface (
 
         // Save the contents of the framebuffer to this capture buffer.
         //
-        mParentGop->Blt (
-                      mParentGop,
-                      Surface->pCaptureBuffer,
-                      EfiBltVideoToBltBuffer,
-                      Surface->FrameRect.Left,
-                      Surface->FrameRect.Top,
-                      0,
-                      0,
-                      FrameWidth,
-                      FrameHeight,
-                      0
-                      );
+        mSRE.OriginalGop.Blt (
+                           mGop,
+                           Surface->pCaptureBuffer,
+                           EfiBltVideoToBltBuffer,
+                           Surface->FrameRect.Left,
+                           Surface->FrameRect.Top,
+                           0,
+                           0,
+                           FrameWidth,
+                           FrameHeight,
+                           0
+                           );
       } else {
         if (Surface->PreviousActive != NULL) {
           Surface->PreviousActive->Active = TRUE;
@@ -1035,31 +1033,31 @@ SREActivateSurface (
         //
 
         if (mPreExitBootServices) {
-          mParentGop->Blt (
-                        mParentGop,
-                        &BlackPixel,
-                        EfiBltVideoFill,
-                        0,
-                        0,
-                        Surface->FrameRect.Left,
-                        Surface->FrameRect.Top,
-                        FrameWidth,
-                        FrameHeight,
-                        0
-                        );
+          mSRE.OriginalGop.Blt (
+                             mGop,
+                             &BlackPixel,
+                             EfiBltVideoFill,
+                             0,
+                             0,
+                             Surface->FrameRect.Left,
+                             Surface->FrameRect.Top,
+                             FrameWidth,
+                             FrameHeight,
+                             0
+                             );
         } else {
-          mParentGop->Blt (
-                        mParentGop,
-                        Surface->pCaptureBuffer,
-                        EfiBltBufferToVideo,
-                        0,
-                        0,
-                        Surface->FrameRect.Left,
-                        Surface->FrameRect.Top,
-                        FrameWidth,
-                        FrameHeight,
-                        0
-                        );
+          mSRE.OriginalGop.Blt (
+                             mGop,
+                             Surface->pCaptureBuffer,
+                             EfiBltBufferToVideo,
+                             0,
+                             0,
+                             Surface->FrameRect.Left,
+                             Surface->FrameRect.Top,
+                             FrameWidth,
+                             FrameHeight,
+                             0
+                             );
         }
       }
 
@@ -1227,30 +1225,23 @@ SRESetModeSurface (
 
 static EFI_STATUS
 InitializeRenderingEngine (
-  VOID
+  EFI_HANDLE  SreHandle
   )
 {
   EFI_STATUS  Status = EFI_SUCCESS;
 
   DEBUG ((DEBUG_INFO, "INFO [SRE]: Initializing the Rendering Engine.\r\n"));
 
-  if (mParentGop == NULL) {
-    DEBUG ((DEBUG_ERROR, "ERROR [SRE]: Parent GOP is NULL during initialization.\r\n"));
-    return EFI_NOT_READY;
-  }
+  mSRE.OriginalGop.Blt       = mGop->Blt;
+  mSRE.OriginalGop.QueryMode = mGop->QueryMode;
+  mSRE.OriginalGop.SetMode   = mGop->SetMode;
+  mSRE.OriginalGop.Mode      = mGop->Mode;
 
   // Configure initial Rendering Engine context.
   //
   mSRE.ShowingMousePointer = FALSE;
-  mSRE.MousePointerOrigX   = (mParentGop->Mode->Info->HorizontalResolution / 2);          // Default X position (may be adjusted later for display mode switch).
-  mSRE.MousePointerOrigY   = (mParentGop->Mode->Info->VerticalResolution   / 2);          // Default Y position (may be adjusted later for display mode switch).
-
-  // Install our own GOP handlers.
-  //
-  mSRE.Gop.Blt       = SREBlt;
-  mSRE.Gop.QueryMode = SREQueryMode;
-  mSRE.Gop.SetMode   = SRESetMode;
-  mSRE.Gop.Mode      = mParentGop->Mode;                        // Reference our parent's Mode structure directly.
+  mSRE.MousePointerOrigX   = (mGop->Mode->Info->HorizontalResolution / 2);          // Default X position (may be adjusted later for display mode switch).
+  mSRE.MousePointerOrigY   = (mGop->Mode->Info->VerticalResolution   / 2);          // Default Y position (may be adjusted later for display mode switch).
 
   // Install our Rendering Engine protocol.
   //
@@ -1264,24 +1255,26 @@ InitializeRenderingEngine (
   mSRE.SREProtocol.DeleteSurface   = SREDeleteSurface;
   mSRE.SREProtocol.SetModeSurface  = SRESetModeSurface;
 
+  // Install the SRE protocol on the same handle as the GOP protocol.
   Status = gBS->InstallMultipleProtocolInterfaces (
-                  &mSREGopHandle,
-                  &gEfiGraphicsOutputProtocolGuid,
-                  (VOID **)&mSRE.Gop,
+                  &SreHandle,
                   &gMsSREProtocolGuid,
                   (VOID **)&mSRE.SREProtocol,
                   NULL,
                   NULL
                   );
-
-  ASSERT_EFI_ERROR (Status);
-
   if (EFI_ERROR (Status)) {
-    DEBUG ((DEBUG_ERROR, "ERROR [SRE]: Failed to install GOP (%r).\r\n", Status));
+    DEBUG ((DEBUG_ERROR, "ERROR [SRE]: Failed to install SRE protocol (%r).\r\n", Status));
+    ASSERT_EFI_ERROR (Status);
     goto Exit;
   }
 
-  DEBUG ((DEBUG_INFO, "INFO [SRE]: Registered our own GOP protocol, Handle=0x%x, Status: %r\r\n", mSREGopHandle, Status));
+  // Override the GOP protocol with our own functions.
+  mGop->Blt       = SREBlt;
+  mGop->QueryMode = SREQueryMode;
+  mGop->SetMode   = SRESetMode;
+
+  DEBUG ((DEBUG_INFO, "INFO [SRE]: Overrode the GOP protocol, Handle=0x%x, Status: %r\r\n", SreHandle, Status));
 
   // Create a timer event to regularly sample active surface frames and confirm someone hasn't used the framebuffer pointer directly to step on the surface.
   //
@@ -1292,7 +1285,6 @@ InitializeRenderingEngine (
                   NULL,
                   &mSampleSurfaceFrameTimerEvent
                   );
-
   if (EFI_ERROR (Status)) {
     DEBUG ((DEBUG_ERROR, "ERROR [SRE]: Failed to create timer event for sampling surface frame (%r).\r\n", Status));
     goto Exit;
@@ -1318,8 +1310,17 @@ Exit:
     @param[in] Controller           Controller handle to be checked.
     @param[in] RemainingDevicePath  Ignored.
 
-    @retval EFI_SUCCESS             Found the controller we want to support.
-    @retval EFI_UNSUPPORTED         Unsupported controller.
+  @retval EFI_SUCCESS              The device specified by ControllerHandle and
+                                   RemainingDevicePath is supported by the driver specified by This.
+  @retval EFI_ALREADY_STARTED      The device specified by ControllerHandle and
+                                   RemainingDevicePath is already being managed by the driver
+                                   specified by This.
+  @retval EFI_ACCESS_DENIED        The device specified by ControllerHandle and
+                                   RemainingDevicePath is already being managed by a different
+                                   driver or an application that requires exclusive access.
+                                   Currently not implemented.
+  @retval EFI_UNSUPPORTED          The device specified by ControllerHandle and
+                                   RemainingDevicePath is not supported by the driver specified by This.
 
 **/
 EFI_STATUS
@@ -1330,43 +1331,22 @@ SREDriverSupported (
   IN EFI_DEVICE_PATH_PROTOCOL     *RemainingDevicePath
   )
 {
-  EFI_STATUS                    Status = EFI_SUCCESS;
-  EFI_GRAPHICS_OUTPUT_PROTOCOL  *Gop;
-
   // If we've already loaded or are trying to connect to our own published protocol, skip.
   //
-  if ((NULL != mSREGopHandle) || (Controller == mImageHandle) || (Controller == mSREGopHandle)) {
-    Status = EFI_UNSUPPORTED;
-    goto Exit;
+  if ((mGop != NULL) || (Controller == mImageHandle)) {
+    return EFI_UNSUPPORTED;
   }
 
   // Check for the GOP on the controller's handle.
   //
-  Status = gBS->OpenProtocol (
-                  Controller,
-                  mMsGopOverrideProtocolGuid,
-                  (VOID **)&Gop,
-                  This->DriverBindingHandle,
-                  Controller,
-                  EFI_OPEN_PROTOCOL_BY_DRIVER
-                  );
-
-  if (EFI_ERROR (Status)) {
-    goto Exit;
-  }
-
-  // Close the parent GOP.
-  //
-  gBS->CloseProtocol (
-         Controller,
-         mMsGopOverrideProtocolGuid,
-         This->DriverBindingHandle,
-         Controller
-         );
-
-Exit:
-
-  return Status;
+  return gBS->OpenProtocol (
+                Controller,
+                &gEfiGraphicsOutputProtocolGuid,
+                NULL,
+                This->DriverBindingHandle,
+                Controller,
+                EFI_OPEN_PROTOCOL_TEST_PROTOCOL
+                );
 }
 
 /**
@@ -1396,22 +1376,18 @@ SREDriverStart (
   //
   Status = gBS->OpenProtocol (
                   Controller,
-                  mMsGopOverrideProtocolGuid,
-                  (VOID **)&mParentGop,
+                  &gEfiGraphicsOutputProtocolGuid,
+                  (VOID **)&mGop,
                   This->DriverBindingHandle,
-                  Controller,
-                  EFI_OPEN_PROTOCOL_BY_DRIVER
+                  NULL,
+                  EFI_OPEN_PROTOCOL_GET_PROTOCOL
                   );
-
   if (EFI_ERROR (Status)) {
-    DEBUG ((DEBUG_ERROR, "ERROR [SRE]: Failed to open GOP (%r).\r\n", Status));
+    DEBUG ((DEBUG_ERROR, "ERROR [SRE]: Failed to find the GOP Protocol (%r).\r\n", Status));
     goto Exit;
   }
 
-  // Manufacture a new GOP and a RenderingEngine Protocol.
-  //
-  mSREGopHandle = Controller;
-  Status        = InitializeRenderingEngine ();
+  Status = InitializeRenderingEngine (Controller);
 
 Exit:
 
@@ -1452,21 +1428,6 @@ SREDriverStop (
          0
          );
 
-  // Uninstall protocol interfaces.
-  //
-  Status = gBS->UninstallMultipleProtocolInterfaces (
-                  mSREGopHandle,
-                  &gEfiGraphicsOutputProtocolGuid,
-                  &mSRE.Gop,
-                  &gMsSREProtocolGuid,
-                  &mSRE.SREProtocol,
-                  NULL
-                  );
-
-  if (EFI_ERROR (Status)) {
-    goto Exit;
-  }
-
   // Delete all surfaces.
   //
   while (NULL != mSRE.Surfaces) {
@@ -1476,19 +1437,29 @@ SREDriverStop (
       );
   }
 
-  // Close the parent (real) GOP.
+  // Uninstall protocol interfaces.
   //
+  Status = gBS->UninstallMultipleProtocolInterfaces (
+                  Controller,
+                  &gMsSREProtocolGuid,
+                  &mSRE.SREProtocol,
+                  NULL
+                  );
+  ASSERT_EFI_ERROR (Status);
+
+  // Restore the original GOP handlers.
+  mGop->Blt       = mSRE.OriginalGop.Blt;
+  mGop->QueryMode = mSRE.OriginalGop.QueryMode;
+  mGop->SetMode   = mSRE.OriginalGop.SetMode;
+
+  mGop = NULL;
+
   gBS->CloseProtocol (
          Controller,
-         mMsGopOverrideProtocolGuid,
+         &gEfiGraphicsOutputProtocolGuid,
          This->DriverBindingHandle,
          Controller
          );
-
-  mParentGop    = NULL;
-  mSREGopHandle = NULL;
-
-Exit:
 
   DEBUG ((DEBUG_INFO, "INFO [SRE]: Driver stop Exit (%r).\r\n", Status));
 
@@ -1537,8 +1508,6 @@ DriverInit (
   // Save the image handle for later.
   //
   mImageHandle = ImageHandle;
-
-  mMsGopOverrideProtocolGuid = PcdGetPtr (PcdMsGopOverrideProtocolGuid);
 
   // Install the Driver Binding Protocol.
   //
