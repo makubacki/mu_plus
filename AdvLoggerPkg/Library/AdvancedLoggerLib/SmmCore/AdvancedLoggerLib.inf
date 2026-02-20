@@ -43,6 +43,7 @@
 
 [Protocols]
   gAdvancedLoggerProtocolGuid                                               ## CONSUMES
+  gEfiSmmReadyToLockProtocolGuid                                            ## NOTIFY
 
 [Pcd]
   gAdvLoggerPkgTokenSpaceGuid.PcdAdvancedLoggerHdwPortDebugPrintErrorLevel  ## SOMETIMES_CONSUMES
