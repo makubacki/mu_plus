@@ -23,10 +23,12 @@
 
 #include "../AdvancedLoggerCommon.h"
 
-STATIC ADVANCED_LOGGER_INFO  *mLoggerInfo;
-STATIC UINT32                mBufferSize  = 0;
-STATIC EFI_PHYSICAL_ADDRESS  mMaxAddress  = 0;
-STATIC BOOLEAN               mInitialized = FALSE;
+STATIC ADVANCED_LOGGER_INFO  *mLoggerInfo                 = NULL;
+STATIC UINT32                mBufferSize                  = 0;
+STATIC EFI_PHYSICAL_ADDRESS  mMaxAddress                  = 0;
+STATIC BOOLEAN               mInitialized                 = FALSE;
+STATIC EFI_EVENT             mAdvancedLoggerProtocolEvent = NULL;
+STATIC VOID                  *mAdvancedLoggerProtocolReg  = NULL;
 
 VOID
 EFIAPI
@@ -117,6 +119,77 @@ ValidateInfoBlock (
 }
 
 /**
+  Update cached logger info from the Advanced Logger Protocol.
+
+  @retval EFI_SUCCESS           Logger info successfully updated.
+  @retval EFI_NOT_FOUND         The advanced logger protocol was not found.
+  @retval EFI_INVALID_PARAMETER Invalid protocol signature or version.
+
+**/
+STATIC
+EFI_STATUS
+UpdateLoggerInfoFromProtocol (
+  VOID
+  )
+{
+  ADVANCED_LOGGER_PROTOCOL  *LoggerProtocol;
+  EFI_STATUS                Status;
+
+  Status = gBS->LocateProtocol (
+                  &gAdvancedLoggerProtocolGuid,
+                  NULL,
+                  (VOID **)&LoggerProtocol
+                  );
+  if (EFI_ERROR (Status) || (LoggerProtocol == NULL)) {
+    return EFI_NOT_FOUND;
+  }
+
+  ASSERT (LoggerProtocol->Signature == ADVANCED_LOGGER_PROTOCOL_SIGNATURE);
+  ASSERT (LoggerProtocol->Version == ADVANCED_LOGGER_PROTOCOL_VERSION);
+
+  if ((LoggerProtocol->Signature != ADVANCED_LOGGER_PROTOCOL_SIGNATURE) ||
+      (LoggerProtocol->Version != ADVANCED_LOGGER_PROTOCOL_VERSION))
+  {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  mLoggerInfo = LOGGER_INFO_FROM_PROTOCOL (LoggerProtocol);
+
+  if (mLoggerInfo != NULL) {
+    mMaxAddress = LOG_MAX_ADDRESS (mLoggerInfo);
+    //
+    // Force buffer size to be re-evaluated
+    //
+    mBufferSize = 0;
+  }
+
+  return EFI_SUCCESS;
+}
+
+/**
+  Notification function for Advanced Logger Protocol installation.
+
+  @param[in]  Event    Event whose notification function is being invoked.
+  @param[in]  Context  Pointer to the notification function's context.
+**/
+STATIC
+VOID
+EFIAPI
+OnAdvancedLoggerProtocolNotification (
+  IN EFI_EVENT  Event,
+  IN VOID       *Context
+  )
+{
+  EFI_STATUS  Status;
+
+  Status = UpdateLoggerInfoFromProtocol ();
+  if (!EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_INFO, "%a: Logger buffer updated. LoggerInfo=%p\n", __func__, mLoggerInfo));
+    mAdvLoggerProtocol.LoggerInfo = mLoggerInfo;
+  }
+}
+
+/**
     Get the Logger Information Block published by DxeCore.
  **/
 STATIC
@@ -125,8 +198,7 @@ SmmInitializeLoggerInfo (
   VOID
   )
 {
-  ADVANCED_LOGGER_PROTOCOL  *LoggerProtocol;
-  EFI_STATUS                Status;
+  EFI_STATUS  Status;
 
   if (!mInitialized) {
     //
@@ -136,21 +208,10 @@ SmmInitializeLoggerInfo (
       return;
     }
 
-    mInitialized = TRUE;                // Only one attempt at getting the logger info block.
+    mInitialized = TRUE;
 
-    Status = gBS->LocateProtocol (
-                    &gAdvancedLoggerProtocolGuid,
-                    NULL,
-                    (VOID **)&LoggerProtocol
-                    );
+    Status = UpdateLoggerInfoFromProtocol ();
     ASSERT_EFI_ERROR (Status);
-    if (!EFI_ERROR (Status)) {
-      mLoggerInfo = LOGGER_INFO_FROM_PROTOCOL (LoggerProtocol);
-      ASSERT (mLoggerInfo != NULL);
-      if (mLoggerInfo != NULL) {
-        mMaxAddress = LOG_MAX_ADDRESS (mLoggerInfo);
-      }
-    }
 
     //
     // If mLoggerInfo is NULL at this point, there is no Advanced Logger.
@@ -175,10 +236,6 @@ AdvancedLoggerGetLoggerInfo (
   )
 {
   SmmInitializeLoggerInfo ();
-
-  if ((mLoggerInfo != NULL) && AdvancedLoggerCheckForNewerLogger (&mLoggerInfo, &mMaxAddress, &mBufferSize)) {
-    DEBUG ((DEBUG_INFO, "MmCore %a: Logger Update. LoggerInfo=%p\n", __func__, mLoggerInfo));
-  }
 
   return mLoggerInfo;
 }
@@ -224,6 +281,35 @@ SmmCoreAdvancedLoggerLibConstructor (
   ASSERT ((gBS != NULL) && (gSmst != NULL));
 
   SmmInitializeLoggerInfo ();
+
+  //
+  // Register a notification function for Advanced Logger Protocol installation.
+  // This allows the SMM Core to pick up the migrated logger buffer when the DXE
+  // Core reinstalls the protocol at End of DXE.
+  //
+  Status = gBS->CreateEvent (
+                  EVT_NOTIFY_SIGNAL,
+                  TPL_CALLBACK,
+                  OnAdvancedLoggerProtocolNotification,
+                  NULL,
+                  &mAdvancedLoggerProtocolEvent
+                  );
+
+  if (!EFI_ERROR (Status)) {
+    Status = gBS->RegisterProtocolNotify (
+                    &gAdvancedLoggerProtocolGuid,
+                    mAdvancedLoggerProtocolEvent,
+                    &mAdvancedLoggerProtocolReg
+                    );
+
+    if (EFI_ERROR (Status)) {
+      DEBUG ((DEBUG_ERROR, "%a: Register Protocol Notify failed - %r\n", __func__, Status));
+      gBS->CloseEvent (mAdvancedLoggerProtocolEvent);
+      mAdvancedLoggerProtocolEvent = NULL;
+    }
+  } else {
+    DEBUG ((DEBUG_ERROR, "%a: Create Event for Protocol Notify failed - %r\n", __func__, Status));
+  }
 
   //
   // SMM_CORE does not allow SmmInstallProtocolInterface until after the SmmInitializeMemoryServices
