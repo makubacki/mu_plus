@@ -6,6 +6,8 @@
     Commit:         [{{mu_plus.commit}}]({{mu_plus.commitlink}})  
     Commit Date:    {{mu_plus.date}}
 
+Test change
+
 This repo contains Project Mu common code that should only take Basecore as a
 dependency and be applicable to almost any FW project. For full documentation.
 
