@@ -10,6 +10,7 @@ on:
   pull_request:
     branches:
       - release/202511
+      - add_mu_pr_val_workflow_test
 
 jobs:
   stub:
