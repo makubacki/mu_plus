@@ -1,0 +1,19 @@
+# Stub workflow for testing the Mu QEMU PR Validation trigger chain.
+# This will be replaced with the real CLANGPDB Package CI workflow later.
+#
+# Copyright (c) Microsoft Corporation.
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+name: CLANGPDB Package CI
+
+on:
+  pull_request:
+    branches:
+      - release/202511
+
+jobs:
+  stub:
+    name: Stub CI
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "CLANGPDB Package CI stub - success"
