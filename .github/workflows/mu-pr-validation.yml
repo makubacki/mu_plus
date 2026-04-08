@@ -1,6 +1,6 @@
 # Runs QEMU-based platform validation on pull requests.
 #
-# Triggered by the completion of the "CLANGPDB Package CI" workflow.
+# Triggered by the completion of the "CodeQL" workflow.
 #
 # Gathers PR metadata and calls the reusable MuPrValidation workflow in
 # mu_devops to build and boot mu_plus changes on QEMU Q35 and SBSA.
@@ -12,7 +12,7 @@ name: Mu QEMU PR Validation
 
 on:
   workflow_run:
-    workflows: ["CLANGPDB Package CI"]
+    workflows: ["CodeQL"]
     types: ["completed"]
 
 concurrency:
