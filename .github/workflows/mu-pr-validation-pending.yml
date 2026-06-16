@@ -18,6 +18,7 @@ on:
       - synchronize
     branches:
       - release/202511
+      - test_armvirt_pr_val
 
 permissions:
   contents: read
