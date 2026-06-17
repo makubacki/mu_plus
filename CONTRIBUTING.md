@@ -1,5 +1,7 @@
 # Contributing to Project Mu
 
+Test change.
+
 Welcome, and thank you for your interest in contributing to Project Mu!
 
 There are many ways in which you can contribute, beyond writing code. The goal of this document is to provide a
