@@ -15,6 +15,7 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 #include <Pi/PiStatusCode.h>
 
 #include <Protocol/DebugSupport.h>
+#include <Protocol/MemoryProtectionNonstopMode.h>
 
 #include <Guid/DebugImageInfoTable.h>
 
