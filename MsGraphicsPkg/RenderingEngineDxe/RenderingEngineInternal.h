@@ -128,8 +128,11 @@ typedef struct _RENDERING_ENGINE_CONTEXT_tag_ {
 
   // Protocols.
   //
-  EFI_GRAPHICS_OUTPUT_PROTOCOL     Gop;
-  MS_RENDERING_ENGINE_PROTOCOL     SREProtocol;
+  EFI_GRAPHICS_OUTPUT_PROTOCOL           Gop;                     // Proxy GOP published on the child handle.
+  EFI_GRAPHICS_OUTPUT_PROTOCOL_MODE      GopMode;                 // Proxy GOP mode data, copied from the parent GOP.
+  EFI_GRAPHICS_OUTPUT_MODE_INFORMATION   GopModeInfo;
+  EFI_DEVICE_PATH_PROTOCOL               *ChildDevicePath;        // Device path of the child handle.
+  MS_RENDERING_ENGINE_PROTOCOL           SREProtocol;
 } RENDERING_ENGINE_CONTEXT;
 
 // ****** Preprocessor macros ******
@@ -137,6 +140,5 @@ typedef struct _RENDERING_ENGINE_CONTEXT_tag_ {
 
 // ****** External definitions ******
 //
-extern EFI_GUID  gGopOverrideProtocolGuid;
 
 #endif // _RENDERING_ENGINE_INTERNAL_H_.
