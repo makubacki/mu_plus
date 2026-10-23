@@ -66,14 +66,13 @@ typedef struct {
 //
 
 /**
-    Checks whether the specified controller exposes the Absolute Pointer interface that we will manage.
+    Checks whether the controller exposes graphics or an Absolute Pointer interface that we will manage.
 
     @param[in] this                 Pointer to the instance of this driver.
     @param[in] Controller           Handle to be checked for Absolute Pointer support.
     @param[in] RemainingDevicePath  Ignored.
 
     @retval EFI_SUCCESS             Simple Window Manager can support this controller.
-    @retval EFI_ALREADY_STARTED     Simple Window Manager is already managing this controller.
     @retval EFI_UNSUPPORTED         Controller isn't one we'll manage.
 
 **/
@@ -81,12 +80,12 @@ EFI_STATUS
 EFIAPI
 SWMDriverSupported (
   IN EFI_DRIVER_BINDING_PROTOCOL  *this,
-  IN EFI_HANDLE                Controller,
-  IN EFI_DEVICE_PATH_PROTOCOL  *RemainingDevicePath
+  IN EFI_HANDLE                   Controller,
+  IN EFI_DEVICE_PATH_PROTOCOL     *RemainingDevicePath
   );
 
 /**
-    Start supporting specified controller exposing Absolute Pointer interface.
+    Starts supporting a graphics or Absolute Pointer controller.
 
     @param[in] this                 Pointer to the instance of this driver.
     @param[in] Controller           Handle of controller to be managed.
@@ -100,13 +99,13 @@ SWMDriverSupported (
 EFI_STATUS
 EFIAPI
 SWMDriverStart (
-  IN EFI_DRIVER_BINDING_PROTOCOL      *this,
-  IN EFI_HANDLE                Controller,
-  IN EFI_DEVICE_PATH_PROTOCOL  *RemainingDevicePath
+  IN EFI_DRIVER_BINDING_PROTOCOL  *this,
+  IN EFI_HANDLE                   Controller,
+  IN EFI_DEVICE_PATH_PROTOCOL     *RemainingDevicePath
   );
 
 /**
-    Stops supporting specified controller exposing Absolute Pointer interface.
+    Stops supporting a graphics or Absolute Pointer controller.
 
     @param[in] this                 Pointer to the instance of this driver.
     @param[in] Controller           Handle of controller being managed.
@@ -114,15 +113,17 @@ SWMDriverStart (
     @param[in] ChildHandleBuffer    Ignored.
 
     @retval EFI_SUCCESS             Successfully stopped managing the specified controller.
+    @retval EFI_NOT_FOUND           Unable to find the specified controller in the watchlist.
+    @retval EFI_DEVICE_ERROR        Failed to stop managing the specified controller.
 
 **/
 EFI_STATUS
 EFIAPI
 SWMDriverStop (
-  IN  EFI_DRIVER_BINDING_PROTOCOL     *this,
-  IN  EFI_HANDLE  Controller,
-  IN  UINTN       NumberOfChildren,
-  IN  EFI_HANDLE  *ChildHandleBuffer
+  IN  EFI_DRIVER_BINDING_PROTOCOL  *this,
+  IN  EFI_HANDLE                   Controller,
+  IN  UINTN                        NumberOfChildren,
+  IN  EFI_HANDLE                   *ChildHandleBuffer
   );
 
 /**
@@ -194,14 +195,14 @@ WaitForEventInternal (
 **/
 EFI_STATUS
 PasswordDialogInternal (
-  IN  MS_SIMPLE_WINDOW_MANAGER_PROTOCOL   *this,
-  IN  CHAR16               *pTitleBarText,
-  IN  CHAR16               *pCaptionText,
-  IN  CHAR16               *pBodyText,
-  IN  CHAR16               *pErrorText,
-  IN  SWM_PWD_DIALOG_TYPE  Type,
-  OUT SWM_MB_RESULT        *Result,
-  OUT CHAR16               **Password
+  IN  MS_SIMPLE_WINDOW_MANAGER_PROTOCOL  *this,
+  IN  CHAR16                             *pTitleBarText,
+  IN  CHAR16                             *pCaptionText,
+  IN  CHAR16                             *pBodyText,
+  IN  CHAR16                             *pErrorText,
+  IN  SWM_PWD_DIALOG_TYPE                Type,
+  OUT SWM_MB_RESULT                      *Result,
+  OUT CHAR16                             **Password
   );
 
 /**
@@ -255,17 +256,17 @@ good at lower resolutions.
 **/
 EFI_STATUS
 SemmAuthDialogInternal (
-  IN  MS_SIMPLE_WINDOW_MANAGER_PROTOCOL   *this,
-  IN  CHAR16               *pTitleBarText,
-  IN  CHAR16               *pCaptionText,
-  IN  CHAR16               *pBodyText,
-  IN  CHAR16               *pCertText,
-  IN  CHAR16               *pConfirmText,
-  IN  CHAR16               *pErrorText,
-  IN  SWM_PWD_DIALOG_TYPE  Type,
-  OUT SWM_MB_RESULT        *Result,
-  OUT CHAR16               **Password OPTIONAL,
-  OUT CHAR16               **Thumbprint OPTIONAL
+  IN  MS_SIMPLE_WINDOW_MANAGER_PROTOCOL  *this,
+  IN  CHAR16                             *pTitleBarText,
+  IN  CHAR16                             *pCaptionText,
+  IN  CHAR16                             *pBodyText,
+  IN  CHAR16                             *pCertText,
+  IN  CHAR16                             *pConfirmText,
+  IN  CHAR16                             *pErrorText,
+  IN  SWM_PWD_DIALOG_TYPE                Type,
+  OUT SWM_MB_RESULT                      *Result,
+  OUT CHAR16                             **Password OPTIONAL,
+  OUT CHAR16                             **Thumbprint OPTIONAL
   );
 
 // ****** Common data structures ******
@@ -277,6 +278,8 @@ SemmAuthDialogInternal (
 typedef struct _WINMGR_CLIENTLIST_tag {
   UINTN                                  Signature;          // Signature of this block
   BOOLEAN                                HasDisplaySurface;  // TRUE = client has an associated display surface (i.e., not just a user input queue).
+  EFI_EVENT                              PaintEvent;
+  EFI_EVENT                              SurfacePaintEvent;
   BOOLEAN                                Active;             // TRUE = currently active and processing events.
   SWM_RECT                               WindowFrame;        // Clients on-screen window frame rectangle (used for hit detection).
   BOOLEAN                                WindowAreaCaptured; // TRUE = screen underlying the client's window has been captured.
